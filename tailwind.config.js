@@ -1,0 +1,91 @@
+module.exports = {
+  content: [
+    './app/**/*.{js,jsx,ts,tsx}',
+    './src/**/*.{js,jsx,ts,tsx}',
+  ],
+  presets: [require('nativewind/preset')],
+  theme: {
+    extend: {
+      colors: {
+        dark: {
+          bg: '#171717',
+          surface: '#1f1f1f',
+          elevated: '#262626',
+          overlay: '#2a2a2a',
+        },
+        glass: {
+          DEFAULT: 'rgba(255, 255, 255, 0.05)',
+          hover: 'rgba(255, 255, 255, 0.08)',
+          active: 'rgba(255, 255, 255, 0.12)',
+          border: 'rgba(255, 255, 255, 0.1)',
+          'border-light': 'rgba(255, 255, 255, 0.05)',
+          'border-bright': 'rgba(255, 255, 255, 0.15)',
+        },
+        brand: {
+          50: '#312E81',
+          100: '#3730A3',
+          200: '#4338CA',
+          300: '#4F46E5',
+          400: '#6366F1',
+          500: '#818CF8',
+          600: '#A5B4FC',
+          700: '#C7D2FE',
+          800: '#E0E7FF',
+          900: '#EEF2FF',
+        },
+        accent: {
+          cyan: '#22D3EE',
+          purple: '#A855F7',
+          pink: '#EC4899',
+          emerald: '#34D399',
+          amber: '#FBBF24',
+        },
+        bjp: '#FF9933',
+        inc: '#00BFFF',
+        aap: '#3B82F6',
+        dmk: '#EF4444',
+        tmc: '#34D399',
+        jds: '#22C55E',
+        sp: '#F87171',
+        bsp: '#60A5FA',
+        ncp: '#3B82F6',
+        ss: '#FB923C',
+        tdp: '#FACC15',
+        ysrcp: '#38BDF8',
+        jdu: '#4ADE80',
+        rjd: '#4ADE80',
+        bjd: '#34D399',
+        success: {
+          DEFAULT: '#34D399',
+          muted: 'rgba(52, 211, 153, 0.15)',
+        },
+        warning: {
+          DEFAULT: '#FBBF24',
+          muted: 'rgba(251, 191, 36, 0.15)',
+        },
+        danger: {
+          DEFAULT: '#F87171',
+          muted: 'rgba(248, 113, 113, 0.15)',
+        },
+        info: {
+          DEFAULT: '#60A5FA',
+          muted: 'rgba(96, 165, 250, 0.15)',
+        },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      },
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.5rem',
+        '4xl': '2rem',
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
+    },
+  },
+  plugins: [],
+};

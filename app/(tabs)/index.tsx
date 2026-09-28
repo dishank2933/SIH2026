@@ -1,0 +1,326 @@
+import React, { useState, useCallback, useMemo, useDeferredValue, useEffect } from 'react';
+import { View, Text, FlatList, Pressable } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useFilteredMPs, useIndexData } from '@/hooks/useMPData';
+import { useFilterStore, type SortField } from '@/store/filterStore';
+import { useCompareStore } from '@/store/compareStore';
+import type { MPProfile } from '@/data/types';
+import { colors } from '@/theme/colors';
+
+import { SearchInput } from '@/components/ui/SearchInput';
+import { Chip } from '@/components/ui/Chip';
+import { MPCard } from '@/components/mp/MPCard';
+import { ShareImageModal } from '@/components/mp/ShareImageModal';
+import { RoomPickerModal } from '@/components/chat/RoomPickerModal';
+import { SortFilterModal } from '@/components/ui/SortFilterModal';
+import { CompareBar, CompareModal } from '@/components/compare';
+
+interface ListHeaderProps {
+  onFilterPress: () => void;
+}
+
+const SORT_LABELS: Record<SortField, string> = {
+  name: 'Name',
+  assets: 'Assets',
+  criminal_cases: 'Cases',
+  age: 'Age',
+  constituency: 'Constituency',
+};
+
+const ListHeader = React.memo(function ListHeader({ onFilterPress }: ListHeaderProps) {
+  const filteredMPs = useFilteredMPs();
+  const mpCount = filteredMPs.length;
+
+  const stateFilter = useFilterStore(s => s.state);
+  const party = useFilterStore(s => s.party);
+  const criminalFilter = useFilterStore(s => s.criminalFilter);
+  const electionFilter = useFilterStore(s => s.electionFilter);
+  const sortField = useFilterStore(s => s.sortField);
+  const sortDirection = useFilterStore(s => s.sortDirection);
+
+  const setState = useFilterStore(s => s.setState);
+  const setParty = useFilterStore(s => s.setParty);
+  const setCriminalFilter = useFilterStore(s => s.setCriminalFilter);
+  const clearFilters = useFilterStore(s => s.clearFilters);
+  const hasActiveFilters = useFilterStore(s => s.hasActiveFilters);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (stateFilter) count++;
+    if (party) count++;
+    if (criminalFilter !== 'all') count++;
+    if (electionFilter !== 'all') count++;
+    if (sortField !== 'name' || sortDirection !== 'asc') count++;
+    return count;
+  }, [stateFilter, party, criminalFilter, electionFilter, sortField, sortDirection]);
+
+  return (
+    <View className="pb-3">
+      <View className="flex-row items-center justify-between mb-3">
+        <View className="flex-row flex-1 flex-wrap gap-2">
+          {stateFilter && (
+            <Chip
+              label={stateFilter}
+              selected
+              icon="location-outline"
+              onRemove={() => setState(null)}
+              size="sm"
+            />
+          )}
+          {party && (
+            <Chip
+              label={party}
+              selected
+              icon="flag-outline"
+              onRemove={() => setParty(null)}
+              size="sm"
+            />
+          )}
+          {criminalFilter !== 'all' && (
+            <Chip
+              label={criminalFilter === 'with_cases' ? 'With Cases' : 'No Cases'}
+              selected
+              icon="shield-outline"
+              onRemove={() => setCriminalFilter('all')}
+              size="sm"
+            />
+          )}
+        </View>
+
+        <Pressable
+          onPress={onFilterPress}
+          className="flex-row items-center bg-white/5 rounded-xl px-3 py-2 ml-2"
+        >
+          <Ionicons name="options-outline" size={18} color={colors.text.secondary} />
+          <Text className="text-sm font-medium ml-1.5" style={{ color: colors.text.secondary }}>
+            {SORT_LABELS[sortField] || 'Name'}
+          </Text>
+          <Ionicons
+            name={sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'}
+            size={14}
+            color={colors.text.tertiary}
+            style={{ marginLeft: 4 }}
+          />
+          {activeFilterCount > 0 && (
+            <View className="bg-brand-500 rounded-full w-5 h-5 items-center justify-center ml-2">
+              <Text className="text-white text-xs font-bold">{activeFilterCount}</Text>
+            </View>
+          )}
+        </Pressable>
+      </View>
+
+      <View className="flex-row items-center justify-between">
+        <Text className="text-sm" style={{ color: colors.text.tertiary }}>
+          {mpCount} {mpCount === 1 ? 'MP' : 'MPs'} found
+        </Text>
+        {hasActiveFilters() && (
+          <Pressable
+            onPress={clearFilters}
+            className="flex-row items-center px-2 py-1 rounded-lg active:bg-white/5"
+          >
+            <Ionicons name="refresh" size={14} color={colors.primary[500]} />
+            <Text className="text-sm font-medium ml-1" style={{ color: colors.primary[500] }}>
+              Reset
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+});
+
+export default function HomeScreen() {
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [showShareImageModal, setShowShareImageModal] = useState(false);
+  const [showRoomPicker, setShowRoomPicker] = useState(false);
+  const [shareImageMP, setShareImageMP] = useState<MPProfile | null>(null);
+  const [shareChatroomMP, setShareChatroomMP] = useState<MPProfile | null>(null);
+  const [compareShareContent, setCompareShareContent] = useState<string | undefined>(undefined);
+  const [compareShareLabel, setCompareShareLabel] = useState<string | undefined>(undefined);
+
+  const filteredMPs = useFilteredMPs();
+  const indexData = useIndexData();
+  const compareCount = useCompareStore(state => state.selectedMPs.length);
+  const autoOpen = useCompareStore(state => state.autoOpen);
+  const clearAutoOpen = useCompareStore(state => state.clearAutoOpen);
+  const selectedMPs = useCompareStore(state => state.selectedMPs);
+
+  const search = useFilterStore(s => s.search);
+  const setSearch = useFilterStore(s => s.setSearch);
+
+  const handleShareImage = useCallback((mp: MPProfile) => {
+    setShareImageMP(mp);
+    setShowShareImageModal(true);
+  }, []);
+
+  const handleShareChatroom = useCallback((mp: MPProfile) => {
+    setShareChatroomMP(mp);
+    setShowRoomPicker(true);
+  }, []);
+
+  const handleCompareShareChatroom = useCallback(() => {
+    const slugs = selectedMPs.map(mp => mp.slug).join(',');
+    setCompareShareContent(`[compare:${slugs}]`);
+    setCompareShareLabel('MP Comparison');
+    setShowRoomPicker(true);
+  }, [selectedMPs]);
+
+  useEffect(() => {
+    if (autoOpen && selectedMPs.length >= 2) {
+      setShowCompareModal(true);
+      clearAutoOpen();
+    }
+  }, [autoOpen, selectedMPs.length, clearAutoOpen]);
+
+  const handleFilterPress = useCallback(() => setShowFilterModal(true), []);
+
+  const sortField = useFilterStore(s => s.sortField);
+  const sortDirection = useFilterStore(s => s.sortDirection);
+  const clearFilters = useFilterStore(s => s.clearFilters);
+
+  const sortedMPs = useMemo(() => {
+    let sorted = [...filteredMPs];
+
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'name':
+          cmp = (a.basic?.fullName || '').localeCompare(b.basic?.fullName || '');
+          break;
+        case 'assets':
+          cmp = (a.financial?.totalAssets || 0) - (b.financial?.totalAssets || 0);
+          break;
+        case 'criminal_cases':
+          cmp = (a.criminal?.totalCases || 0) - (b.criminal?.totalCases || 0);
+          break;
+        case 'age':
+          cmp = (a.basic?.age || 0) - (b.basic?.age || 0);
+          break;
+        case 'constituency':
+          cmp = (a.basic?.constituency || '').localeCompare(b.basic?.constituency || '');
+          break;
+      }
+      return sortDirection === 'desc' ? -cmp : cmp;
+    });
+    return sorted;
+  }, [filteredMPs, sortField, sortDirection]);
+
+  const deferredSortedMPs = useDeferredValue(sortedMPs);
+
+  const renderItem = useCallback(({ item }: { item: MPProfile }) => (
+    <MPCard mp={item} onShareImage={handleShareImage} onShareChatroom={handleShareChatroom} />
+  ), [handleShareImage, handleShareChatroom]);
+
+  const keyExtractor = useCallback((item: MPProfile) => item.id, []);
+
+  const renderListHeader = useCallback(() => (
+    <ListHeader onFilterPress={handleFilterPress} />
+  ), [handleFilterPress]);
+
+  const ListEmpty = useMemo(() => (
+    <View className="flex-1 items-center justify-center py-20">
+      <View className="w-20 h-20 rounded-full bg-white/5 items-center justify-center mb-4">
+        <Ionicons name="search-outline" size={40} color={colors.text.muted} />
+      </View>
+      <Text className="text-lg font-semibold" style={{ color: colors.text.secondary }}>
+        No MPs found
+      </Text>
+      <Text className="text-sm mt-1" style={{ color: colors.text.tertiary }}>
+        Try adjusting your search or filters
+      </Text>
+      <Pressable
+        onPress={clearFilters}
+        className="mt-4 bg-brand-500/20 px-4 py-2 rounded-xl border border-brand-500/30"
+      >
+        <Text className="font-medium" style={{ color: colors.primary[500] }}>
+          Clear all filters
+        </Text>
+      </Pressable>
+    </View>
+  ), [clearFilters]);
+
+  return (
+    <>
+      <StatusBar style="light" />
+      <SafeAreaView
+        className="flex-1"
+        style={{ backgroundColor: colors.dark.background }}
+        edges={['top', 'bottom']}
+      >
+        <View className="px-4 pt-2 pb-3" style={{ backgroundColor: colors.dark.background }}>
+          <SearchInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search by name, constituency..."
+          />
+        </View>
+
+        <FlatList
+          data={deferredSortedMPs}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          ListHeaderComponent={renderListHeader}
+          ListEmptyComponent={ListEmpty}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: compareCount > 0 ? 180 : 20 }}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={false}
+        />
+        <CompareBar onCompare={() => setShowCompareModal(true)} />
+      </SafeAreaView>
+
+      <SortFilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        index={{
+          states: indexData.indexes.byState
+            ? Object.entries(indexData.indexes.byState).map(([name, ids]) => ({
+                name,
+                count: (ids as string[]).length,
+              }))
+            : [],
+          parties: indexData.indexes.byParty
+            ? Object.entries(indexData.indexes.byParty).map(([name, ids]) => ({
+                name,
+                count: (ids as string[]).length,
+              }))
+            : [],
+        }}
+      />
+
+      <CompareModal
+        visible={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+        onShareChatroom={handleCompareShareChatroom}
+      />
+
+      <ShareImageModal
+        visible={showShareImageModal}
+        onClose={() => {
+          setShowShareImageModal(false);
+          setShareImageMP(null);
+        }}
+        mp={shareImageMP}
+      />
+
+      <RoomPickerModal
+        visible={showRoomPicker}
+        onClose={() => {
+          setShowRoomPicker(false);
+          setShareChatroomMP(null);
+          setCompareShareContent(undefined);
+          setCompareShareLabel(undefined);
+        }}
+        mp={shareChatroomMP}
+        shareContent={compareShareContent}
+        shareLabel={compareShareLabel}
+      />
+    </>
+  );
+}
